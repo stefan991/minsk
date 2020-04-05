@@ -319,6 +319,9 @@ namespace Minsk.CodeAnalysis.Syntax
                 case '/' when Lookahead == '/':
                     ReadSingleLineComment();
                     break;
+                case '/' when Lookahead == '*':
+                    ReadMultiLineComment();
+                    break;
                 default:
                     if (char.IsWhiteSpace(Current))
                     {
@@ -349,6 +352,35 @@ namespace Minsk.CodeAnalysis.Syntax
                 _position++;
 
             _triviaKind = SyntaxKind.SingleLineCommentTrivia;
+        }
+
+        private void ReadMultiLineComment()
+        {
+            // skip start of comment
+            _position += 2;
+
+            var done = false;
+            while (!done)
+            {
+                switch (Current)
+                {
+                    case '\0':
+                        var span = new TextSpan(_start, 2);
+                        var location = new TextLocation(_text, span);
+                        _diagnostics.ReportUnterminatedComment(location);
+                        done = true;
+                        break;
+                    case '*' when Lookahead == '/':
+                        _position += 2;
+                        done = true;
+                        break;
+                    default:
+                        _position++;
+                        break;
+                }
+            }
+
+            _triviaKind = SyntaxKind.MultiLineCommentTrivia;
         }
     }
 }

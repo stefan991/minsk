@@ -25,6 +25,23 @@ namespace Minsk.Tests.CodeAnalysis.Syntax
         }
 
         [Fact]
+        public void Lexer_Lexes_UnterminatedComment()
+        {
+            var text = "/* comment";
+            var tokens = SyntaxTree.ParseTokens(text, out var diagnostics, includeEndOfFile: true);
+
+            var token = Assert.Single(tokens);
+            Assert.Equal(SyntaxKind.EndOfFileToken, token.Kind);
+            var trivia = Assert.Single(token.LeadingTrivia);
+            Assert.Equal(SyntaxKind.MultiLineCommentTrivia, trivia.Kind);
+            Assert.Equal(text, trivia.Text);
+
+            var diagnostic = Assert.Single(diagnostics);
+            Assert.Equal(new TextSpan(0, 2), diagnostic.Location.Span);
+            Assert.Equal("Unterminated comment.", diagnostic.Message);
+        }
+
+        [Fact]
         public void Lexer_Covers_AllTokens()
         {
             var tokenKinds = Enum.GetValues(typeof(SyntaxKind))
@@ -274,6 +291,9 @@ namespace Minsk.Tests.CodeAnalysis.Syntax
                 (SyntaxKind.SingleLineCommentTrivia, "// "),
                 (SyntaxKind.SingleLineCommentTrivia, "//a"),
                 (SyntaxKind.SingleLineCommentTrivia, "///"),
+                (SyntaxKind.MultiLineCommentTrivia, "/**/"),
+                (SyntaxKind.MultiLineCommentTrivia, "/* a */"),
+                (SyntaxKind.MultiLineCommentTrivia, "/* \n */"),
             };
 
             return trivia.Concat(GetSeparators());
@@ -339,6 +359,9 @@ namespace Minsk.Tests.CodeAnalysis.Syntax
                 return true;
 
             if (t1Kind == SyntaxKind.SlashToken && t2Kind == SyntaxKind.SlashToken)
+                return true;
+
+            if (t1Kind == SyntaxKind.SlashToken && t2Kind == SyntaxKind.StarToken)
                 return true;
 
             return false;

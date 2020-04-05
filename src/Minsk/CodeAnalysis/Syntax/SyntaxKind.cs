@@ -6,6 +6,7 @@ namespace Minsk.CodeAnalysis.Syntax
         WhitespaceTrivia,
         EndOfLineTrivia,
         SingleLineCommentTrivia,
+        MultiLineCommentTrivia,
 
         // Tokens
         BadToken,
