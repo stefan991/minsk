@@ -5,6 +5,7 @@ using System.Collections.Specialized;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using Minsk.CodeAnalysis.Text;
 using Minsk.IO;
 
 namespace Minsk
@@ -60,16 +61,16 @@ namespace Minsk
 
         private sealed class SubmissionView
         {
-            private readonly Action<string> _lineRenderer;
+            private readonly Action<string, Action<string>> _submissionRenderer;
             private readonly ObservableCollection<string> _submissionDocument;
             private int _cursorTop;
             private int _renderedLineCount;
             private int _currentLine;
             private int _currentCharacter;
 
-            public SubmissionView(Action<string> lineRenderer, ObservableCollection<string> submissionDocument)
+            public SubmissionView(Action<string, Action<string>> submissionRenderer, ObservableCollection<string> submissionDocument)
             {
-                _lineRenderer = lineRenderer;
+                _submissionRenderer = submissionRenderer;
                 _submissionDocument = submissionDocument;
                 _submissionDocument.CollectionChanged += SubmissionDocumentChanged;
                 _cursorTop = Console.CursorTop;
@@ -87,29 +88,60 @@ namespace Minsk
 
                 var lineCount = 0;
 
-                foreach (var line in _submissionDocument)
+                Console.SetCursorPosition(0, _cursorTop + lineCount);
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.Write("» ");
+                Console.ResetColor();
+
+                void Write(string text)
                 {
-                    if (_cursorTop + lineCount >= Console.WindowHeight)
+                    var splitedText = SourceText.From(text);
+
+                    foreach (var line in splitedText.Lines)
                     {
-                        Console.SetCursorPosition(0, Console.WindowHeight - 1);
-                        Console.WriteLine();
-                        if (_cursorTop > 0)
-                            _cursorTop--;
+                        // may be neater to use SourceText instead of string.Split
                     }
 
-                    Console.SetCursorPosition(0, _cursorTop + lineCount);
-                    Console.ForegroundColor = ConsoleColor.Green;
+                    while (text != string.Empty)
+                    {
+                        var partAndRestAfterNewline = text.Split(new[] { Environment.NewLine }, 2, StringSplitOptions.None );
+                        var part = partAndRestAfterNewline[0];
 
-                    if (lineCount == 0)
-                        Console.Write("» ");
-                    else
+                        if (part != string.Empty)
+                            Console.Write(part);
+
+                        if (partAndRestAfterNewline.Length <= 1)
+                            break;
+
+                        Console.Write(new string(' ', Console.WindowWidth - Console.CursorLeft));
+
+                        lineCount++;
+                        if (_cursorTop + lineCount >= Console.WindowHeight)
+                        {
+                            Console.SetCursorPosition(0, Console.WindowHeight - 1);
+                            Console.WriteLine();
+                            if (_cursorTop > 0)
+                                _cursorTop--;
+                        }
+
+                        Console.SetCursorPosition(0, _cursorTop + lineCount);
+
+                        var foregroundColor = Console.ForegroundColor;
+                        var backgroundColor = Console.BackgroundColor;
+                        Console.ResetColor();
+                        Console.ForegroundColor = ConsoleColor.Green;
                         Console.Write("· ");
+                        Console.ForegroundColor = foregroundColor;
+                        Console.BackgroundColor = backgroundColor;
 
-                    Console.ResetColor();
-                    _lineRenderer(line);
-                    Console.Write(new string(' ', Console.WindowWidth - line.Length - 2));
-                    lineCount++;
+                        text = partAndRestAfterNewline[1];
+                    }
                 }
+
+                _submissionRenderer(String.Join(Environment.NewLine, _submissionDocument), Write);
+
+                Console.Write(new string(' ', Console.WindowWidth - Console.CursorLeft));
+                lineCount++;
 
                 var numberOfBlankLines = _renderedLineCount - lineCount;
                 if (numberOfBlankLines > 0)
@@ -168,7 +200,7 @@ namespace Minsk
             _done = false;
 
             var document = new ObservableCollection<string>() { "" };
-            var view = new SubmissionView(RenderLine, document);
+            var view = new SubmissionView(RenderSubmission, document);
 
             while (!_done)
             {
@@ -419,9 +451,9 @@ namespace Minsk
             _submissionHistory.Clear();
         }
 
-        protected virtual void RenderLine(string line)
+        protected virtual void RenderSubmission(string submission, Action<string> write)
         {
-            Console.Write(line);
+            write(submission);
         }
 
         private void EvaluateMetaCommand(string input)

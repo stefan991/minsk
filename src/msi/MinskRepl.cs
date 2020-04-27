@@ -23,14 +23,14 @@ namespace Minsk
             LoadSubmissions();
         }
 
-        protected override void RenderLine(string line)
+        protected override void RenderSubmission(string submission, Action<string> write)
         {
-            var tokens = SyntaxTree.ParseTokens(line, includeEndOfFile: true);
+            var tokens = SyntaxTree.ParseTokens(submission, includeEndOfFile: true);
             foreach (var token in tokens)
             {
                 Console.ForegroundColor = ConsoleColor.DarkGreen;
                 foreach (var trivia in token.LeadingTrivia)
-                    Console.Write(trivia.Text);
+                    write(trivia.Text);
 
                 if (token.Kind != SyntaxKind.EndOfFileToken)
                 {
@@ -50,11 +50,11 @@ namespace Minsk
                     else
                         Console.ForegroundColor = ConsoleColor.DarkGray;
 
-                    Console.Write(token.Text);
+                    write(token.Text);
 
                     Console.ForegroundColor = ConsoleColor.DarkGreen;
                     foreach (var trivia in token.TrailingTrivia)
-                        Console.Write(trivia.Text);
+                        write(trivia.Text);
                 }
 
                 Console.ResetColor();
@@ -148,6 +148,9 @@ namespace Minsk
                 return true;
 
             var syntaxTree = SyntaxTree.Parse(text);
+
+            if (syntaxTree.Root.EndOfFileToken.LeadingTrivia.LastOrDefault()?.Kind == SyntaxKind.MultiLineCommentTrivia)
+                return false;
 
             // Use Members because we need to exclude the EndOfFileToken.
             var members = syntaxTree.Root.Members;
